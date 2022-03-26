@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+  <!-------------------------------------------------------------------- HEAD -------------------------------------------------------------------->
+  <head>
+    <!-- settings: -->
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- name and description: -->
+    <title>ResuMe</title>
+    <meta name="description" content="ResuMe is a platform that allows students and job seekers
+    to share their resume for other users to give their intake on it and review it."> 
+
+    <!-- style: -->
+    <link rel="icon" href="{% static 'images/thumbnail.png' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'styles/main.css' %}">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+  </head>
+  <!-------------------------------------------------------------------- BODY -------------------------------------------------------------------->
+  <body>
+    <div class="container">
+
+      <!-- ------------------------side bar-------------------------- -->
+      <div class="side-bar">
+
+        <a href="{% url 'Feed-home' %}" class="logo">
+          <img src=" {% static 'images/headerLogo-color.png' %}" alt="logo">
+        </a>
+        
+        <div class="profile">
+          <a href="#profile-page">
+            <div class="profile-img">
+              <img src="{%static 'images/profile1.png' %}" alt="omer profile">
+            </div>
+          </a>
+          <div class="user-info">
+            <h1>Omer Cohen Shor</h1>
+            <h2>Programmer</h2>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="box">
+               <h3>2</h3>
+               <span>Posts</span>
+          </div>
+          <div class="box">
+               <h3>4.3</h3>
+               <span>Top rated resume</span>
+          </div>  
+        </div>
+
+        <hr id="side-bar-seperator">
+
+        <nav class="menu">
+
+          <a href="{% url 'Feed-home' %}" class="active">
+            <li class="icon"> 
+              <i class="ri-home-6-line"></i>
+            </li>
+            Feed
+          </a>
+
+          <a href="#profile">
+            <li class="icon"> 
+              <i class="ri-user-2-line"></i>
+            </li>
+            Profile
+          </a>
+
+          <a href="#direct">
+            <li class="icon"> 
+              <i class="ri-chat-1-line"></i>
+            </li>
+            Direct
+          </a>
+
+          <a href="#search">
+            <li class="icon"> 
+              <i class="ri-search-line"></i>
+            </li>
+            Search
+          </a>
+
+          <a href="#login">
+            <li class="icon"> 
+              <i class="ri-login-circle-line"></i>
+            </li>
+            Login
+          </a>
+
+          <a href="#logout">
+            <li class="icon"> 
+              <i class="ri-logout-circle-line"></i>
+            </li>
+            Logout
+          </a>
+
+          <a href="{% url 'Feed-about' %}">
+            <li class="icon"> 
+              <i class="ri-question-line"></i>
+            </li>
+            About
+          </a>
+      </div>
+
+      
+      <!-- ------------------------main content-------------------------- -->
+
+      <div class="main-content">
+        {% block content %}{% endblock %}
+      </div>
+
+    </div>
+  </body>
+</html>
