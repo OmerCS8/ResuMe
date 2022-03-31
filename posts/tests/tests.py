@@ -1,5 +1,5 @@
 import pytest
-from posts.models import Post, Resume, Rating, Poll, PollFile
+from posts.models import Post, Resume, Rating, Poll, PollFile, Choice
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 
@@ -11,13 +11,20 @@ EMAIL = "testuser@gmail.com"
 DESCRIPTION = "this is a test post"
 FILE1 = "Alon_Shakaroffs_resume.pdf"
 FILE2 = "Olive.png"
-
+CHOICETEXT1 = "First option"
+CHOICETEXT2 = "Second option"
 
 # -----------------------------------------------fixtures----------------------------------------------------------
+
 
 @pytest.fixture
 def new_user():
     return User(username=USERNAME, first_name=FIRSTNAME, last_name=LASTNAME, password=PASSWORD, email=EMAIL)
+
+
+@pytest.fixture
+def new_user2():
+    return User(username="user2", first_name=FIRSTNAME, last_name=LASTNAME, password=PASSWORD, email="test2@gmail.com")
 
 
 @pytest.fixture
@@ -81,6 +88,19 @@ def persist_poll_file(new_poll_file):
     new_poll_file.poll.save()
     new_poll_file.save()
     return new_poll_file
+
+
+@pytest.fixture
+def new_choice(new_poll):
+    return Choice(poll=new_poll, choice_text=CHOICETEXT1)
+
+
+@pytest.fixture
+def persist_choice(new_choice):
+    new_choice.poll.author.save()
+    new_choice.poll.save()
+    new_choice.save()
+    return new_choice
 
 
 def new_user_with_name_and_email(user_name, email):
@@ -353,3 +373,142 @@ class TestPollFile:
     def test_pollFile_invalid_args(self, poll, file, expected_error):
         with pytest.raises(expected_error):
             PollFile(poll=poll, file=file)
+
+
+# -------------------------------------------- Choice tests --------------------------------------------
+
+@pytest.mark.django_db()
+class TestChoice:
+
+    # Check that the Choice values are the same as the Choice inputs.
+    def test_new_choice_input_same_as_output(self, new_choice):
+        assert new_choice.poll.author.username == USERNAME
+        assert new_choice.poll.description == DESCRIPTION
+        assert new_choice.poll.get_amount_of_votes() == 0
+        assert new_choice.choice_text == CHOICETEXT1
+
+    # Check if the Choice is saved in the database and accessible via its Poll.
+    def test_persist_choice(self, persist_choice):
+        assert persist_choice in Choice.objects.all()
+        assert persist_choice in persist_choice.poll.choice_set.all()
+
+    # Check if Choice deletion delete only Choice from database.
+    def test_delete_choice(self, persist_choice):
+        persist_choice.delete()
+        assert persist_choice.poll in Poll.objects.all()
+        assert persist_choice.poll.author in User.objects.all()
+        assert persist_choice not in Choice.objects.all()
+
+    # Check if Choice's poll deletion delete both Choice and poll from database - but not the poll's author.
+    def test_delete_choice_poll(self, persist_choice):
+        persist_choice.poll.delete()
+        assert persist_choice.poll not in Poll.objects.all()
+        assert persist_choice.poll.author in User.objects.all()
+        assert persist_choice not in Choice.objects.all()
+
+    # Check if Choice's poll's author deletion delete also Choice and database.
+    def test_delete_choice_user(self, persist_choice):
+        persist_choice.poll.author.delete()
+        assert persist_choice not in Poll.objects.all()
+        assert persist_choice.poll.author not in User.objects.all()
+        assert persist_choice not in Choice.objects.all()
+
+    # Check if Poll can have several Choices simultaneously.
+    def test_several_choices(self, persist_poll):
+        choice1 = Choice(poll=persist_poll, choice_text=CHOICETEXT1)
+        assert len(Choice.objects.all()) == 0
+        choice1.save()
+        assert len(Choice.objects.all()) == 1
+        persist_poll.poll.choice_set.create(choice_text=CHOICETEXT2)
+        assert len(persist_poll.choice_set.all()) == 2
+
+    # verify that it is impossible to create a Choice with invalid params.
+    # (string as Poll, user as Poll, int as choice_text).
+    @pytest.mark.parametrize("poll, choice_text, expected_error", [(
+        USERNAME, CHOICETEXT1, ValueError),
+        (new_user, DESCRIPTION, ValueError),
+        (new_poll, 6, ValueError)])
+    def test_pollFile_invalid_args(self, poll, choice_text, expected_error):
+        with pytest.raises(expected_error):
+            PollFile(poll=poll, file=choice_text)
+
+
+# -------------------------------------------- votes tests --------------------------------------------
+
+@pytest.mark.django_db()
+class TestVote:
+
+    # Check if a vote is saved in the database and accessible via its voted choice and voter.
+    def test_persist_vote(self, persist_choice, persist_user):
+        assert persist_user not in persist_choice.voters.all()
+        persist_choice.voters.add(persist_user)
+        assert persist_user in persist_choice.voters.all()
+        assert persist_choice in persist_user.choice_set.all()
+
+    # Check if vote removal works.
+    def test_remove_vote(self, persist_choice, persist_user):
+        persist_choice.voters.add(persist_user)
+        persist_choice.voters.remove(persist_user)
+        assert persist_user not in persist_choice.voters.all()
+
+    # Check if Choice can have several Votes simultaneously.
+    def test_several_votes_on_one_choice(self, persist_choice, persist_user):
+        persist_choice.voters.add(persist_user)
+        persist_choice.voters.create(
+            username="user2",
+            first_name=FIRSTNAME,
+            last_name=LASTNAME,
+            password=PASSWORD,
+            email="test2@gmail.com")
+        assert len(persist_choice.voters.all()) == 2
+
+    # Check if Choice can have several Votes simultaneously.
+    def test_several_votes_choices_of_one_user(self, persist_poll, persist_user):
+        choice1 = persist_poll.choice_set.create(choice_text=CHOICETEXT1)
+        choice2 = persist_poll.choice_set.create(choice_text=CHOICETEXT2)
+        choice1.voters.add(persist_user)
+        choice2.voters.add(persist_user)
+        assert len(persist_user.choice_set.all()) == 2
+
+    # Check if percentage function work as expected.
+    def test_percentage_and_get_amount_of_voters_functions(self, persist_poll):
+        user1 = User.objects.create(
+            username="user1",
+            first_name="uaser1",
+            last_name="test",
+            password="12345",
+            email="user1@gmail.com")
+        user2 = User.objects.create(
+            username="user2",
+            first_name="uaser2",
+            last_name="test",
+            password="12345",
+            email="user2@gmail.com")
+        user3 = User.objects.create(
+            username="user3",
+            first_name="uaser3",
+            last_name="test",
+            password="12345",
+            email="user3@gmail.com")
+        user4 = User.objects.create(
+            username="user4",
+            first_name="uaser4",
+            last_name="test",
+            password="12345",
+            email="user4@gmail.com")
+        choice1 = persist_poll.choice_set.create(choice_text=CHOICETEXT1)
+        choice2 = persist_poll.choice_set.create(choice_text=CHOICETEXT2)
+        assert choice1.get_amount_of_votes() == 0
+        choice1.voters.add(user1)
+        assert choice1.get_amount_of_votes() == 1
+        assert choice1.get_percentage() == 100.0
+        assert choice2.get_percentage() == 0
+        assert persist_poll.get_amount_of_votes() == 1
+        choice1.voters.add(user2)
+        choice1.voters.add(user3)
+        choice2.voters.add(user4)
+        assert choice1.get_amount_of_votes() == 3
+        assert choice2
+        assert choice1.get_percentage() == 75.0
+        assert choice2.get_percentage() == 25.0
+        assert persist_poll.get_amount_of_votes() == 4
